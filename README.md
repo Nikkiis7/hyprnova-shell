@@ -46,6 +46,8 @@ quickshell ipc call network toggle    # gerenciador de rede
 | `bin/` | Scripts auxiliares (`hypr-appearance`, `hypr-res`, `fastfetch-apply`, `wall-theme`...) |
 | `hypr/` | `hyprland.lua` de exemplo |
 | `kitty/`, `fastfetch/` | Configs de apoio |
+| `yazi/` | Config do gerenciador de arquivos yazi |
+| `nvim/` | Config do Neovim (tema catppuccin) |
 
 ## Como as configurações funcionam
 

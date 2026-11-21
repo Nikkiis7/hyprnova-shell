@@ -35,6 +35,15 @@ mkdir -p ~/.config/fastfetch
 mkdir -p ~/.config/waybar
 [ -f ~/.config/waybar/style.css ] || echo '@define-color accent #89b4fa;' > ~/.config/waybar/style.css
 
+echo "==> Yazi e Neovim"
+for app in yazi nvim; do
+  if [ -d "$HERE/$app" ]; then
+    [ -d ~/.config/$app ] && mv ~/.config/$app ~/.config/$app.bak-$STAMP && echo "    backup de $app em ~/.config/$app.bak-$STAMP"
+    mkdir -p ~/.config/$app
+    cp -r "$HERE/$app"/. ~/.config/$app/
+  fi
+done
+
 echo
 echo "Pronto. O hyprland.lua NÃO foi sobrescrito."
 echo "Use hypr/hyprland.lua.example como base (ele lê ~/.cache/hypr-appearance.lua e ~/.cache/hypr-res.lua)."
