@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+# hypr-binds list            -> JSON com todas as binds do hyprland.lua
+# hypr-binds set <linha> "SUPER + SHIFT + Q"   -> troca a tecla dessa bind e recarrega
+import sys, re, json, os, shutil, subprocess
+
+P = os.path.expanduser("~/.config/hypr/hyprland.lua")
+ORIG = os.path.expanduser("~/.cache/hypr-binds-orig.json")
+DIRS = {"left": "esquerda", "right": "direita", "up": "cima", "down": "baixo",
+        "l": "esquerda", "r": "direita", "u": "cima", "d": "baixo"}
+
+def split_args(t, i):
+    spans, depth, q, start, j, n = [], 0, None, i, i, len(t)
+    while j < n:
+        c = t[j]
+        if q:
+            if c == "\\": j += 2; continue
+            if c == q: q = None
+        else:
+            if c in "\"'": q = c
+            elif c in "([{": depth += 1
+            elif c in ")]}":
+                if depth == 0:
+                    spans.append((start, j)); return spans
+                depth -= 1
+            elif c == "," and depth == 0:
+                spans.append((start, j)); start = j + 1
+            elif c == "-" and t[j:j + 2] == "--":
+                k = t.find("\n", j); j = k if k >= 0 else n; continue
+        j += 1
+    return spans
+
+def norm_mod(x):
+    x = x.upper()
+    return {"CONTROL": "CTRL", "MOD4": "SUPER", "WIN": "SUPER", "META": "SUPER"}.get(x, x)
+
+def label(a, env):
+    m = re.search(r"exec_cmd\(\s*(.+?)\s*\)\s*$", a)
+    if m:
+        x = m.group(1).strip()
+        cmd = x[1:-1] if x[:1] in "\"'" else env.get(x, x)
+        mm = re.search(r"quickshell ipc call (\w+) (\w+)", cmd)
+        if mm: return "Painel: %s (%s)" % (mm.group(1), mm.group(2))
+        return "Executar: " + cmd
+    ws = re.search(r"workspace\s*=\s*([^\s,}]+)", a)
+    d = re.search(r"direction\s*=\s*[\"'](\w+)[\"']", a)
+    if ws and "move" in a: return "Mover janela para workspace " + ws.group(1).strip("\"'")
+    if ws: return "Ir para workspace " + ws.group(1).strip("\"'")
+    if d: return ("Mover janela " if "move" in a or "swap" in a else "Focar janela ") + DIRS.get(d.group(1), d.group(1))
+    for pat, txt in [(r"close", "Fechar janela"), (r"float", "Alternar janela flutuante"),
+                     (r"fullscreen", "Tela cheia"), (r"drag", "Arrastar janela (mouse)"),
+                     (r"resize", "Redimensionar janela (mouse)"), (r"exit", "Sair do Hyprland"),
+                     (r"togglesplit|toggle_split", "Alternar divisão"), (r"pseudo", "Janela pseudo")]:
+        if re.search(pat, a): return txt
+    return a.replace("hl.dsp.", "")[:70]
+
+def parse(t):
+    env = dict(re.findall(r'^\s*local\s+(\w+)\s*=\s*"([^"]*)"', t, re.M))
+    out = []
+    for m in re.finditer(r"^[ \t]*hl\.bind\(", t, re.M):
+        spans = split_args(t, m.end())
+        if len(spans) < 2: continue
+        a, b = spans[0]
+        raw = t[a:b]
+        lead, trail = len(raw) - len(raw.lstrip()), len(raw) - len(raw.rstrip())
+        expr = raw.strip()
+        s, ok = "", True
+        for p in [x.strip() for x in expr.split("..")]:
+            if len(p) >= 2 and p[0] in "\"'" and p[-1] == p[0]: s += p[1:-1]
+            elif p in env: s += env[p]
+            else: ok = False
+        action = " ".join(t[spans[1][0]:spans[1][1]].split())
+        item = {"id": t.count("\n", 0, m.start()) + 1, "editable": ok, "action": action,
+                "label": label(action, env), "span": (a + lead, b - trail), "mods": [], "key": "", "combo": expr}
+        if ok:
+            toks = [x for x in re.split(r"\s*\+\s*|\s+", s.strip()) if x]
+            item["mods"] = [norm_mod(x) for x in toks[:-1]]
+            item["key"] = toks[-1] if toks else ""
+            item["combo"] = " + ".join(item["mods"] + [item["key"]])
+        out.append(item)
+    return out
+
+def cmd_list():
+    binds = parse(open(P, encoding="utf-8").read())
+    if not os.path.exists(ORIG):
+        json.dump({str(b["id"]): b["combo"] for b in binds}, open(ORIG, "w"))
+    orig = json.load(open(ORIG))
+    for b in binds:
+        b["orig"] = orig.get(str(b["id"]), b["combo"]); b.pop("span")
+    print(json.dumps(binds))
+
+def cmd_set(line, combo):
+    t = open(P, encoding="utf-8").read()
+    binds = parse(t)
+    b = next((x for x in binds if x["id"] == int(line)), None)
+    if not b or not b["editable"]:
+        print("erro: bind nao encontrada ou nao editavel"); return
+    toks = [x for x in re.split(r"\s*\+\s*|\s+", combo.strip()) if x]
+    if not toks or not re.fullmatch(r"[^\s\"'\\]+", toks[-1]):
+        print("erro: tecla invalida"); return
+    mods = [norm_mod(x) for x in toks[:-1]]
+    new = " + ".join(mods + [toks[-1]])
+    sig = lambda mm, k: (frozenset(mm), k.upper())
+    for x in binds:
+        if x["id"] != b["id"] and x["editable"] and sig(x["mods"], x["key"]) == sig(mods, toks[-1]):
+            print("erro: " + new + " ja e usado em '" + x["label"] + "'"); return
+    bak = P + ".bak-binds"
+    if not os.path.exists(bak): shutil.copy(P, bak)
+    a, e = b["span"]
+    open(P, "w", encoding="utf-8").write(t[:a] + '"' + new + '"' + t[e:])
+    subprocess.run(["hyprctl", "reload"], capture_output=True)
+    print("ok: " + b["label"] + " agora é " + new)
+
+if len(sys.argv) >= 2 and sys.argv[1] == "list": cmd_list()
+elif len(sys.argv) >= 4 and sys.argv[1] == "set": cmd_set(sys.argv[2], sys.argv[3])
+else: print("uso: hypr-binds list | set <linha> <combo>")

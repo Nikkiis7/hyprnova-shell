@@ -1,0 +1,15 @@
+#!/bin/sh
+. /etc/os-release 2>/dev/null
+echo "os=${PRETTY_NAME:-Linux}"
+echo "kernel=$(uname -r)"
+echo "host=$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null || cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null)"
+echo "cpu=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1) ($(nproc) threads)"
+echo "gpu=$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | head -1 | sed 's/.*: //; s/ (rev.*//')"
+echo "ram=$(free -h | awk '/^Mem/{print $3 " / " $2}')"
+echo "disk=$(df -h / | awk 'NR==2{print $3 " / " $2 " (" $5 ")"}')"
+echo "uptime=$(uptime -p | sed 's/^up //')"
+echo "screen=$(hyprctl monitors 2>/dev/null | awk '/^Monitor/{n=$2} /[0-9]+x[0-9]+@/{print n" "$1}' | paste -sd'|' | sed 's/|/, /g')"
+echo "hypr=$(hyprctl version 2>/dev/null | head -1 | sed 's/ built from.*//')"
+echo "qs=$(quickshell --version 2>/dev/null | head -1)"
+echo "shell=$(basename "$SHELL")"
+echo "pkgs=$(pacman -Qq 2>/dev/null | wc -l)"

@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+import os, re, glob, colorsys, subprocess
+
+HOME = os.path.expanduser("~")
+src = open(HOME + "/.cache/accent-color").read().strip()
+m = re.fullmatch(r"#([0-9a-fA-F]{6})", src)
+if not m:
+    raise SystemExit("accent-color invalido")
+r, g, b = (int(m.group(1)[i:i+2], 16) / 255 for i in (0, 2, 4))
+h, _, _ = colorsys.rgb_to_hls(r, g, b)
+
+def hsl(s, l, hue=None):
+    rr, gg, bb = colorsys.hls_to_rgb(h if hue is None else hue, l, s)
+    return "#%02x%02x%02x" % (round(rr*255), round(gg*255), round(bb*255))
+
+accent = "#" + m.group(1).lower()
+_, al, as_ = colorsys.rgb_to_hls(r, g, b)
+P = dict(
+    accent=accent,
+    accent_light=hsl(as_, min(0.92, al + 0.12)),
+    bg=hsl(0.44, 0.07),
+    surface=hsl(0.43, 0.15),
+    surface_hi=hsl(0.42, 0.23),
+    border=hsl(0.35, 0.22),
+    fg=hsl(0.60, 0.94),
+    dim=hsl(0.20, 0.65),
+    black=hsl(0.35, 0.18),
+    black_hi=hsl(0.25, 0.40),
+    white=hsl(0.40, 0.85),
+)
+
+kitty = f"""# gerado por wall-theme - nao edite
+foreground              {P['fg']}
+background              {P['bg']}
+selection_foreground    {P['bg']}
+selection_background    {P['accent']}
+cursor                  {P['accent']}
+cursor_text_color       {P['bg']}
+url_color               {P['accent']}
+active_border_color     {P['accent']}
+inactive_border_color   {P['border']}
+bell_border_color       #ffb86c
+active_tab_foreground   {P['bg']}
+active_tab_background   {P['accent']}
+inactive_tab_foreground {P['fg']}
+inactive_tab_background {P['surface']}
+tab_bar_background      {P['bg']}
+color0   {P['black']}
+color8   {P['black_hi']}
+color1   #ff6b9d
+color9   #ff8fb5
+color2   #7ee0a8
+color10  #9af0be
+color3   #ffb86c
+color11  #ffd09a
+color4   #8aa8ff
+color12  #a9c0ff
+color5   {P['accent']}
+color13  {P['accent_light']}
+color6   #7fd6e6
+color14  #a3e6f1
+color7   {P['white']}
+color15  {P['fg']}
+"""
+os.makedirs(HOME + "/.config/kitty", exist_ok=True)
+open(HOME + "/.config/kitty/accent.conf", "w").write(kitty)
+
+yazi = f"""[filetype]
+rules = [
+  # pastas
+  {{ url = "*/", fg = "{P['accent']}" }},
+  # todos os outros arquivos
+  {{ url = "*", fg = "{P['accent']}" }},
+]
+"""
+os.makedirs(HOME + "/.config/yazi", exist_ok=True)
+open(HOME + "/.config/yazi/theme.toml", "w").write(yazi)
+
+lua = "return {\n" + "".join(f'  {k} = "{v}",\n' for k, v in P.items()) + "}\n"
+open(HOME + "/.cache/accent-palette.lua", "w").write(lua)
+
+for sock in glob.glob("/tmp/kitty-*"):
+    subprocess.run(["kitty", "@", "--to", "unix:" + sock, "set-colors", "-a", "-c",
+                    HOME + "/.config/kitty/accent.conf"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+# bordas do hyprland
+def rgba(hexc):
+    return "rgba(" + hexc.lstrip("#") + "ff)"
+
+os.makedirs(HOME + "/.cache", exist_ok=True)
+open(HOME + "/.cache/hypr-accent.lua", "w").write(
+    "return {\n"
+    f'  active = "{rgba(P["accent"])}",\n'
+    f'  light = "{rgba(P["accent_light"])}",\n'
+    f'  inactive = "{rgba(P["border"])}",\n'
+    "}\n")
+subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+# notificacao de cor alterada
+try:
+    from PIL import Image, ImageDraw
+    ico = "/tmp/qs-cor-" + accent[1:] + ".png"
+    if not os.path.exists(ico):
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        ImageDraw.Draw(img).ellipse((4, 4, 60, 60), fill=accent)
+        img.save(ico)
+    subprocess.Popen(["notify-send", "-a", "Tema", "-t", "3000",
+                      "-h", "string:image-path:" + ico,
+                      "Cor do tema alterada", accent],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+except Exception:
+    pass

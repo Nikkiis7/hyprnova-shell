@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+import json, subprocess, sys, os
+CACHE = os.path.expanduser("~/.cache/hypr-res.lua")
+def mons(): return json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
+def focused():
+    m = mons()
+    return next((x for x in m if x.get("focused")), m[0])
+cmd = sys.argv[1] if len(sys.argv) > 1 else "list"
+if cmd == "list":
+    m = focused()
+    print("mon=" + m["name"])
+    print("cur=%dx%d@%.2f" % (m["width"], m["height"], m["refreshRate"]))
+    seen = {}
+    for s in m.get("availableModes", []):
+        r, h = s.replace("Hz", "").split("@")
+        seen.setdefault(r, []).append(h)
+    for r, hs in seen.items(): print("mode=" + r + " " + " ".join(hs))
+elif cmd == "set":
+    name, mode = sys.argv[2], sys.argv[3]
+    m = next(x for x in mons() if x["name"] == name)
+    pos = "%dx%d" % (m["x"], m["y"])
+    with open(CACHE, "w") as f:
+        f.write('hl.monitor({ output = "%s", mode = "%s", position = "%s", scale = %s })\n' % (name, mode, pos, m["scale"]))
+    subprocess.call(["hyprctl", "reload"])
+    print(subprocess.run(["hyprctl", "configerrors"], capture_output=True, text=True).stdout)
+elif cmd == "reset":
+    if os.path.exists(CACHE): os.remove(CACHE)
+    subprocess.call(["hyprctl", "reload"])

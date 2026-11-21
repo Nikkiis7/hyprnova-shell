@@ -1,0 +1,12 @@
+#!/bin/sh
+# uso: hypr-appearance chave=valor chave=valor ...
+out="return {"
+for kv in "$@"; do
+  k="${kv%%=*}"; v="${kv#*=}"
+  case "$v" in
+    true|false|[0-9]*|-[0-9]*) out="$out $k = $v," ;;
+    *) out="$out $k = \"$v\"," ;;
+  esac
+done
+printf '%s }\n' "$out" > "$HOME/.cache/hypr-appearance.lua"
+hyprctl reload >/dev/null 2>&1

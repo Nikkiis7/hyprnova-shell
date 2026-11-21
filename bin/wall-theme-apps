@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import colorsys, os, re, subprocess
+H = os.path.expanduser("~")
+acc = open(f"{H}/.cache/accent-color").read().strip().lstrip("#")[:6]
+r, g, b = (int(acc[i:i+2], 16) / 255 for i in (0, 2, 4))
+h, l, s = colorsys.rgb_to_hls(r, g, b)
+
+def hx(h, l, s):
+    r, g, b = colorsys.hls_to_rgb(h % 1, max(0, min(1, l)), max(0, min(1, s)))
+    return "#%02x%02x%02x" % (round(r*255), round(g*255), round(b*255))
+
+A    = "#" + acc
+dark = hx(h, 0.30, s * 0.8)
+mid  = hx(h, 0.50, s)
+light= hx(h, 0.78, s * 0.9)
+fg   = hx(h, 0.88, 0.12)
+dim  = hx(h, 0.45, 0.10)
+box  = hx(h, 0.42, s * 0.6)
+ALERT = "#ff5c8a"
+
+# ---------- btop ----------
+def tri(n, a, m, z):
+    return f'theme[{n}_start]="{a}"\ntheme[{n}_mid]="{m}"\ntheme[{n}_end]="{z}"\n'
+
+t = f'''theme[main_bg]=""
+theme[main_fg]="{fg}"
+theme[title]="{fg}"
+theme[hi_fg]="{A}"
+theme[selected_bg]="{dark}"
+theme[selected_fg]="{light}"
+theme[inactive_fg]="{dim}"
+theme[graph_text]="{fg}"
+theme[meter_bg]="{dim}"
+theme[proc_misc]="{A}"
+theme[cpu_box]="{box}"
+theme[mem_box]="{box}"
+theme[net_box]="{box}"
+theme[proc_box]="{box}"
+theme[div_line]="{dim}"
+'''
+t += tri("temp", A, light, ALERT)
+t += tri("cpu", dark, A, light)
+t += tri("free", dark, A, light)
+t += tri("cached", dark, A, light)
+t += tri("available", dark, A, light)
+t += tri("used", A, light, ALERT)
+t += tri("download", dark, A, light)
+t += tri("upload", dark, A, light)
+os.makedirs(f"{H}/.config/btop/themes", exist_ok=True)
+open(f"{H}/.config/btop/themes/accent.theme", "w").write(t)
+
+cf = f"{H}/.config/btop/btop.conf"
+if os.path.exists(cf):
+    c = open(cf).read()
+    c2 = re.sub(r'^color_theme\s*=.*$', 'color_theme = "accent"', c, flags=re.M)
+    if c2 != c: open(cf, "w").write(c2)
+subprocess.run(["pkill", "-USR2", "-x", "btop"], stderr=subprocess.DEVNULL)
+
+# ---------- cava ----------
+cv = f"{H}/.config/cava/config"
+if os.path.exists(cv):
+    lines = open(cv).read().split("\n")
+    out, inside = [], False
+    for ln in lines:
+        st = ln.strip()
+        if st.startswith("["):
+            inside = (st == "[color]")
+            out.append(ln)
+            if inside:
+                out += ["gradient = 1", "gradient_count = 3",
+                        f"gradient_color_1 = '{dark}'",
+                        f"gradient_color_2 = '{A}'",
+                        f"gradient_color_3 = '{light}'"]
+            continue
+        if inside and re.match(r'^(gradient|horizontal_gradient)', st):
+            continue
+        out.append(ln)
+    open(cv, "w").write("\n".join(out))
+    subprocess.run(["pkill", "-USR2", "-x", "cava"], stderr=subprocess.DEVNULL)

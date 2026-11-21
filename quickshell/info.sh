@@ -1,0 +1,12 @@
+#!/bin/sh
+echo "user=$(id -un)"
+echo "host=$(hostname)"
+echo "os=$(. /etc/os-release; echo "$PRETTY_NAME")"
+echo "kernel=$(uname -r)"
+echo "uptime=$(awk '{s=int($1); d=int(s/86400); h=int((s%86400)/3600); m=int((s%3600)/60); if (d>0) printf "%dd %dh %dm", d,h,m; else printf "%dh %dm", h,m}' /proc/uptime)"
+echo "pkgs=$(pacman -Q 2>/dev/null | wc -l)"
+echo "shell=$(basename "$SHELL")"
+echo "wm=${XDG_CURRENT_DESKTOP:-Hyprland}"
+echo "cpu=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//')"
+echo "gpu=$(lspci 2>/dev/null | grep -i -E 'vga|3d' | head -1 | sed 's/.*: //; s/ (rev.*//')"
+echo "disk=$(df -h / | awk 'NR==2{print $3" / "$2}')"

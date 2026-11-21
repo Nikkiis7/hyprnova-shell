@@ -1,0 +1,18 @@
+#!/bin/sh
+# uso: waybar-color "#rrggbb" ["rgba(18,12,32,0.88)"]
+[ -n "$1" ] || { echo "uso: waybar-color '#rrggbb' [fundo-da-barra]"; exit 1; }
+python3 - "$HOME/.config/waybar/style.css" "$1" "$2" << 'PY' || exit 1
+import re, sys
+css, accent, bg = sys.argv[1], sys.argv[2], sys.argv[3]
+if not re.fullmatch(r'#[0-9a-fA-F]{6}', accent):
+    sys.exit("cor invalida: use o formato #rrggbb")
+s = open(css).read()
+s = re.sub(r'(@define-color accent )[^;]*;', lambda m: m.group(1) + accent + ';', s, count=1)
+if bg:
+    s = re.sub(r'(@define-color bar_bg )[^;]*;', lambda m: m.group(1) + bg + ';', s, count=1)
+open(css, "w").write(s)
+PY
+printf '%s\n' "$1" > "$HOME/.cache/accent-color"
+
+"$HOME/.local/bin/wall-theme" >/dev/null 2>&1
+~/.local/bin/wall-theme-apps >/dev/null 2>&1 &

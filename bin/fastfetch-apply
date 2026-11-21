@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import json, os, re, shutil, copy
+H = os.path.expanduser("~")
+CFG = H + "/.config/fastfetch/config.jsonc"
+ORIG = CFG + ".orig"
+if not os.path.exists(ORIG): shutil.copy(CFG, ORIG)
+def load(p):
+    t = open(p, encoding="utf-8").read()
+    return json.loads(re.sub(r"^\s*//.*$", "", t, flags=re.M))
+orig = load(ORIG)
+try: S = json.load(open(H + "/.config/quickshell/settings.json"))
+except Exception: S = {}
+g = lambda k, d: S.get(k, d)
+
+DEFAULT = ["os", "host", "kernel", "uptime", "packages", "shell", "wm", "terminal", "cpu", "gpu", "memory", "disk"]
+ORDER = ["os", "host", "kernel", "uptime", "packages", "shell", "display", "wm", "terminal", "cpu", "gpu", "memory", "disk", "localip", "battery", "colors"]
+EXTRA_KEY = {"display": " \U000f0379 ", "battery": " \U000f0079 ", "localip": " \U000f05a9 "}
+color = g("ffKeyColor", "magenta")
+enabled = g("ffMods", DEFAULT)
+tpl = {m["type"]: m for m in orig.get("modules", []) if isinstance(m, dict)}
+
+mods = []
+t = copy.deepcopy(tpl.get("title", {"type": "title"}))
+fmt = t.get("format", " " + os.environ.get("USER", ""))
+stripped = re.sub(r"^[^\w]*", "", fmt)
+t["format"] = fmt[:len(fmt) - len(stripped)] + g("ffName", stripped)
+mods.append(t)
+if g("ffSep", True):
+    mods.append(copy.deepcopy(tpl.get("separator", {"type": "separator", "string": "────────────────────────"})))
+for ty in ORDER:
+    if ty not in enabled: continue
+    if ty in tpl: m = copy.deepcopy(tpl[ty])
+    elif ty == "colors": m = {"type": "colors", "symbol": "circle"}
+    else: m = {"type": ty, "key": EXTRA_KEY.get(ty, "")}
+    if "key" in m: m["keyColor"] = color
+    mods.append(m)
+mods.append("break")
+
+logo = copy.deepcopy(orig.get("logo", {}))
+mode = "current"
+if mode == "none": logo = {"type": "none"}
+elif mode in ("arch", "hyprland"):
+    pad = logo.get("padding", {"right": 4}) if isinstance(logo, dict) else {"right": 4}
+    logo = {"type": "builtin", "source": mode, "padding": pad}
+pass
+
+disp = copy.deepcopy(orig.get("display", {}))
+disp.setdefault("color", {})["keys"] = color
+
+out = {"$schema": orig.get("$schema", ""), "logo": logo, "display": disp, "modules": mods}
+open(CFG, "w", encoding="utf-8").write(json.dumps(out, indent=2, ensure_ascii=False) + "\n")

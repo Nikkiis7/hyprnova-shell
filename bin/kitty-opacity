@@ -1,0 +1,7 @@
+#!/bin/sh
+# kitty-opacity 0.85   (1 = opaco)
+op="$1"
+printf 'dynamic_background_opacity yes\nbackground_opacity %s\n' "$op" > "$HOME/.config/kitty/opacity.conf"
+grep -q 'include opacity.conf' "$HOME/.config/kitty/kitty.conf" || echo 'include opacity.conf' >> "$HOME/.config/kitty/kitty.conf"
+for s in /tmp/kitty-*; do [ -S "$s" ] && kitty @ --to "unix:$s" set-background-opacity --all "$op" >/dev/null 2>&1; done
+exit 0
