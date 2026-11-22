@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+import os, sys, colorsys
+acc = open(os.path.expanduser("~/.cache/accent-color")).read().strip().lstrip("#")[:6]
+r, g, b = (int(acc[i:i+2], 16) / 255 for i in (0, 2, 4))
+h, l, s = colorsys.rgb_to_hls(r, g, b)
+h *= 360
+if s < 0.15: c = "white"
+elif h < 15 or h >= 345: c = "red"
+elif h < 70: c = "yellow"
+elif h < 165: c = "green"
+elif h < 200: c = "cyan"
+elif h < 260: c = "blue"
+else: c = "magenta"
+os.execvp("cmatrix", ["cmatrix", "-C", c] + sys.argv[1:])
