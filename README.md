@@ -54,3 +54,16 @@ As escolhas do painel ficam em `settings.json` (criado ao usar). O painel Hyprla
 ## Licença
 
 MIT
+
+## SDDM (tela de login)
+
+Tema usado: [sddm-astronaut-theme](https://github.com/Keyitdev/sddm-astronaut-theme).
+
+```bash
+yay -S sddm-astronaut-theme            # ou clone o repositório do tema em /usr/share/sddm/themes/
+sudo mkdir -p /etc/sddm.conf.d
+sudo cp sddm/conf.d/*.conf /etc/sddm.conf.d/
+sudo cp sddm/theme-config/metadata.desktop /usr/share/sddm/themes/sddm-astronaut-theme/
+sudo cp sddm/theme-config/Themes/*.conf /usr/share/sddm/themes/sddm-astronaut-theme/Themes/
+sudo systemctl enable sddm
+```
