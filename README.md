@@ -51,10 +51,6 @@ quickshell ipc call network toggle    # gerenciador de rede
 
 As escolhas do painel ficam em `settings.json` (criado ao usar). O painel Hyprland grava em `~/.cache/hypr-appearance.lua` e `~/.cache/hypr-res.lua`, que o `hyprland.lua` carrega.
 
-## Licença
-
-MIT
-
 ## SDDM (tela de login)
 
 Tema usado: [sddm-astronaut-theme](https://github.com/Keyitdev/sddm-astronaut-theme).
